@@ -5,7 +5,7 @@ public class PlayerController : MonoBehaviour
     public float normalSpeed = 5f;
     public float sprintSpeed = 10f;
     public float mouseSensitivity = 2f;
-    public float jumpForce = 5f;
+    public float jumpForce = 1f;
     public Transform cameraTransform;
     public LayerMask groundLayer;
     public float groundCheckDistance = 0.1f;
@@ -15,10 +15,26 @@ public class PlayerController : MonoBehaviour
     private Vector3 velocity;
     private bool isGrounded;
 
+    // Zoom variables
+    public float defaultFOV = 60f;
+    public float zoomedFOV = 30f;
+    public float zoomSpeed = 10f;
+    private Camera playerCamera;
+
     void Start()
     {
         characterController = GetComponent<CharacterController>();
         Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        // Get the Camera component from the cameraTransform
+        playerCamera = cameraTransform.GetComponent<Camera>();
+
+        // Set the default FOV
+        if (playerCamera != null)
+        {
+            playerCamera.fieldOfView = defaultFOV;
+        }
     }
 
     void Update()
@@ -27,6 +43,7 @@ public class PlayerController : MonoBehaviour
         Move();
         Jump();
         ApplyGravity();
+        HandleZoom();
     }
 
     void Move()
@@ -36,7 +53,7 @@ public class PlayerController : MonoBehaviour
         float moveSide = Input.GetAxis("Horizontal") * currentSpeed;
 
         Vector3 move = transform.right * moveSide + transform.forward * moveForward;
-        characterController.Move(move * Time.deltaTime); // This is the Move method of CharacterController
+        characterController.Move(move * Time.deltaTime);
     }
 
     void LookAround()
@@ -44,10 +61,8 @@ public class PlayerController : MonoBehaviour
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-        // Rotate character around the Y axis (horizontal rotation)
         transform.Rotate(Vector3.up * mouseX);
 
-        // Rotate camera around the X axis (vertical rotation)
         verticalLookRotation -= mouseY;
         verticalLookRotation = Mathf.Clamp(verticalLookRotation, -90f, 90f);
 
@@ -58,20 +73,33 @@ public class PlayerController : MonoBehaviour
     {
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
-            velocity.y = Mathf.Sqrt(jumpForce * -2f * Physics.gravity.y);
+            velocity.y = Mathf.Sqrt(jumpForce * -0.5f * Physics.gravity.y);
+            characterController.Move((velocity * Time.deltaTime));
         }
     }
 
     void ApplyGravity()
     {
-        isGrounded = Physics.CheckSphere(transform.position, groundCheckDistance, groundLayer);
+        isGrounded = Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, groundLayer);
 
         if (isGrounded && velocity.y < 0)
         {
-            velocity.y = -2f; // A small negative value to ensure the character stays grounded
+            velocity.y = -5f; // Ensure the character stays grounded
         }
 
-        velocity.y += Physics.gravity.y * Time.deltaTime;
-        characterController.Move(velocity * Time.deltaTime); // Apply gravity effect
+        velocity.y += Physics.gravity.y * Time.deltaTime * 2;
+        characterController.Move(velocity * Time.deltaTime);
+    }
+
+    void HandleZoom()
+    {
+        if (Input.GetMouseButton(1)) // Right mouse button
+        {
+            playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, zoomedFOV, Time.deltaTime * zoomSpeed);
+        }
+        else
+        {
+            playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, defaultFOV, Time.deltaTime * zoomSpeed);
+        }
     }
 }
